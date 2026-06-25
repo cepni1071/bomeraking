@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BomeraKing</title>
+<style>
+  :root{
+    --bg-top:#15275a; --bg-bot:#0a1230;
+    --panel:rgba(255,255,255,.05);
+    --panel-2:rgba(255,255,255,.07);
+    --line:rgba(255,255,255,.10);
+    --ink:#eef2ff; --muted:#8b97c4; --faint:#5d6a96;
+    --accent:#5b7cff; --accent-soft:rgba(91,124,255,.16);
+    --pos:#37d6a0; --neg:#ff6b6b; --gold:#f3c969;
+    --r:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(168deg,var(--bg-top),var(--bg-bot) 62%);
+    background-attachment:fixed;
+    color:var(--ink); min-height:100vh; padding:16px 14px 28px;
+    -webkit-font-smoothing:antialiased; font-variant-numeric:tabular-nums;
+  }
+  .wrap{max-width:680px;margin:0 auto}
+  /* header */
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .brand{display:flex;align-items:baseline;gap:9px}
+  .brand h1{font-size:21px;font-weight:700;letter-spacing:.5px}
+  .brand .suits{font-size:13px;letter-spacing:2px;opacity:.55}
+  .suits .r{color:var(--neg);opacity:.85}
+  .pill{font-size:12.5px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);padding:7px 13px;border-radius:999px}
+  /* cards */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px;backdrop-filter:blur(8px)}
+  .card.flat{background:transparent;border:none;padding:0;backdrop-filter:none}
+  h2{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px}
+  .muted{color:var(--muted)}
+  /* buttons */
+  button{font-family:inherit;cursor:pointer;border:none;font-weight:600;font-size:15px;transition:transform .05s,background .15s,opacity .15s;color:var(--ink)}
+  button:active{transform:scale(.97)}
+  .btn{width:100%;background:var(--accent);color:#fff;border-radius:13px;padding:15px;font-size:16px;letter-spacing:.3px}
+  .btn:disabled{background:rgba(255,255,255,.07);color:var(--faint);cursor:default}
+  .btn-ghost{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:10px 14px;font-size:13.5px;color:var(--ink)}
+  .btn-ghost.danger{color:var(--neg)}
+  .toolbar{display:flex;gap:8px;margin-top:14px}
+  .toolbar button{flex:1}
+  /* setup */
+  .nm{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+  .nm .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:0 0 auto}
+  input[type=text]{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;
+    padding:14px;font-size:16px;font-family:inherit;color:var(--ink)}
+  input::placeholder{color:var(--faint)}
+  input[type=text]:focus{outline:none;border-color:var(--accent);background:rgba(91,124,255,.08)}
+  /* scoreboard */
+  .scores{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  @media(max-width:520px){.scores{grid-template-columns:repeat(2,1fr)}}
+  .ptile{text-align:center;padding:6px 4px;border-radius:14px;position:relative}
+  .ptile.lead{background:var(--accent-soft)}
+  .ptile .pn{font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+  .ptile .ps{font-size:26px;font-weight:700;letter-spacing:.5px}
+  .ptile .pm{font-size:10px;color:var(--faint);margin-top:4px}
+  .ptile .star{position:absolute;top:2px;right:8px;font-size:11px;color:var(--gold)}
+  .pos{color:var(--pos)} .neg{color:var(--neg)} .zero{color:var(--muted)}
+  /* fields */
+  .field{margin-bottom:16px}
+  .field:last-child{margin-bottom:0}
+  label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+  select{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;
+    padding:14px;font-size:16px;font-family:inherit;color:var(--ink);appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b97c4' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 15px center}
+  select:focus{outline:none;border-color:var(--accent)}
+  select option{color:#111}
+  /* steppers */
+  .crow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line)}
+  .crow:last-of-type{border-bottom:none}
+  .crow .who{min-width:0}
+  .crow .who .n{font-size:15.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crow .who .v{font-size:12px;font-weight:600;margin-top:1px}
+  .stp{display:flex;align-items:center;gap:0;flex:0 0 auto}
+  .stp button{width:40px;height:40px;font-size:22px;background:var(--panel-2);border:1px solid var(--line);line-height:1;color:var(--ink)}
+  .stp button:first-child{border-radius:11px 0 0 11px;border-right:none}
+  .stp button:last-child{border-radius:0 11px 11px 0;border-left:none}
+  .stp input{width:48px;height:40px;text-align:center;background:rgba(255,255,255,.03);border:1px solid var(--line);
+    font-size:17px;font-weight:700;font-family:inherit;color:var(--ink);-moz-appearance:textfield}
+  .stp input::-webkit-outer-spin-button,.stp input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .stp input:focus{outline:none}
+  .stp button:disabled{opacity:.3;cursor:default}
+  .sum{display:flex;align-items:center;justify-content:space-between;margin:16px 0;font-size:14px;font-weight:600;color:var(--muted)}
+  .sum .val{font-size:15px;font-weight:700;color:var(--muted)}
+  .sum.ok .val{color:var(--pos)}
+  .unit-tag{font-size:11px;color:var(--faint);font-weight:600;margin-left:7px}
+  /* progress chips */
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{font-size:12px;font-weight:600;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--muted);display:flex;align-items:center;gap:6px}
+  .chip.done{opacity:.32}
+  .chip .ct{font-size:10.5px;color:var(--faint)}
+  .grp-lbl{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px}
+  .grp-lbl:first-child{margin-top:0}
+  /* history */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 5px;text-align:center}
+  th{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;font-weight:600;border-bottom:1px solid var(--line)}
+  td{border-bottom:1px solid rgba(255,255,255,.05)}
+  td.lbl{text-align:left;font-weight:600;white-space:nowrap}
+  td.lbl small{display:block;font-size:10.5px;color:var(--faint);font-weight:500;margin-top:1px}
+  tfoot td{font-weight:700;border-top:1px solid var(--line);border-bottom:none;padding-top:11px}
+  .empty{color:var(--faint);font-size:13px;text-align:center;padding:14px 0}
+  .knd{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:6px;vertical-align:middle}
+  .knd.ceza{color:var(--neg);background:rgba(255,107,107,.13)}
+  .knd.koz{color:var(--pos);background:rgba(55,214,160,.13)}
+  /* winner */
+  .win{text-align:center;padding:26px 18px}
+  .win .t{font-size:34px}
+  .win .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:8px 0 2px}
+  .win .nm2{font-size:28px;font-weight:700}
+  .win .sc{font-size:13px;color:var(--muted);margin-top:8px}
+  .win .wlist{max-width:300px;margin:12px auto 2px}
+  .win .wrow{display:flex;justify-content:space-between;align-items:center;font-size:21px;font-weight:700;
+    padding:9px 16px;border-radius:13px;background:rgba(55,214,160,.10);margin-bottom:8px}
+  .verify{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px;margin-top:16px}
+  .verify.ok{background:rgba(55,214,160,.14);color:var(--pos)}
+  .verify.bad{background:rgba(255,107,107,.14);color:var(--neg)}
+  /* rules */
+  details.rules{margin-bottom:14px}
+  details.rules summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--muted);list-style:none;padding:4px 2px}
+  details.rules summary::-webkit-details-marker{display:none}
+  details.rules .rb{font-size:12.5px;line-height:1.7;color:var(--muted);padding:12px 2px 2px}
+  details.rules .rb b{color:var(--ink);font-weight:600}
+  .foot{text-align:center;color:var(--faint);font-size:11px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>BomeraKing</h1>
+      <span class="suits">♠ <span class="r">♥</span> <span class="r">♦</span> ♣</span>
+    </div>
+    <div class="pill" id="handPill" style="display:none"></div>
+  </header>
+
+  <details class="rules">
+    <summary>Kurallar & puanlar</summary>
+    <div class="rb">
+      <b>4 oyuncu</b> · tek deste · kişi başı 13 kart · <b>20 el</b> (herkes 5 el sahibi: 3 ceza + 2 koz).<br>
+      Cezalar (her biri 2×): El −50/el · Kupa −30 · Kız −100 · Erkek(J+K) −60 · Son iki −180/el · Rıfkı −320.<br>
+      Koz (her renk 2×): +50/el · ilk el koz girilmez.<br>
+      <b>Toplam her zaman 0.</b>
+    </div>
+  </details>
+
+  <div id="app"></div>
+  <div class="foot">Veriler yalnızca bu cihazda saklanır</div>
+</div>
+
+<script>
+const CONTRACTS = {
+  el:     {name:'El Almaz', sym:'',  unit:-50,  total:13, kind:'ceza'},
+  kupa:   {name:'Kupa',     sym:'♥', unit:-30,  total:13, kind:'ceza'},
+  kiz:    {name:'Kız',      sym:'',  unit:-100, total:4,  kind:'ceza'},
+  erkek:  {name:'Erkek',    sym:'',  unit:-60,  total:8,  kind:'ceza'},
+  soniki: {name:'Son İki',  sym:'',  unit:-180, total:2,  kind:'ceza'},
+  rifki:  {name:'Rıfkı',    sym:'♥', unit:-320, total:1,  kind:'ceza'},
+  kmaca:  {name:'Koz · Maça',  sym:'♠', unit:50, total:13, kind:'koz'},
+  kkaro:  {name:'Koz · Karo',  sym:'♦', unit:50, total:13, kind:'koz'},
+  ksinek: {name:'Koz · Sinek', sym:'♣', unit:50, total:13, kind:'koz'},
+  kkupa:  {name:'Koz · Kupa',  sym:'♥', unit:50, total:13, kind:'koz'},
+};
+const KEYS = Object.keys(CONTRACTS);
+const MAX_PER = 2, CEZA_CAP = 3, KOZ_CAP = 2, TOTAL_HANDS = 20;
+const STORE = 'king-tablo-v2';
+
+let state = load() || { players:['','','',''], started:false, hands:[] };
+let draft = null;
+
+function load(){ try{ return JSON.parse(localStorage.getItem(STORE)); }catch(e){ return null; } }
+function persist(){ localStorage.setItem(STORE, JSON.stringify(state)); }
+
+function totals(){ const t=[0,0,0,0]; state.hands.forEach(h=>h.scores.forEach((s,i)=>t[i]+=s)); return t; }
+function used(key){ return state.hands.filter(h=>h.contract===key).length; }
+function dealerUsed(p){ const hs=state.hands.filter(h=>h.dealer===p);
+  return {ceza:hs.filter(h=>CONTRACTS[h.contract].kind==='ceza').length, koz:hs.filter(h=>CONTRACTS[h.contract].kind==='koz').length}; }
+function fmt(n){ return (n>0?'+':'')+n; }
+function cls(n){ return n>0?'pos':(n<0?'neg':'zero'); }
+function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function newDraft(){ draft={ dealer: state.hands.length%4, contract:'', counts:[0,0,0,0] }; }
+
+const app = document.getElementById('app');
+const $ = id => document.getElementById(id);
+
+/* ---------- top-level ---------- */
+function render(){
+  if(!state.started){ $('handPill').style.display='none'; app.innerHTML = setupHTML(); return; }
+  if(!draft) newDraft();
+  app.innerHTML =
+    '<section class="card" id="cScore"></section>'+
+    '<section class="card" id="cMain"></section>'+
+    '<section class="card" id="cProg"></section>'+
+    '<section class="card" id="cHist"></section>';
+  paintPill(); paintScore(); paintMain(); paintProg(); paintHist();
+}
+function paintPill(){ const done=state.hands.length>=TOTAL_HANDS; const e=$('handPill');
+  e.style.display='block'; e.textContent = done?'Tamamlandı':`El ${state.hands.length+1} / ${TOTAL_HANDS}`; }
+function paintScore(){ $('cScore').innerHTML = scoreInner(); }
+function paintMain(){ const done=state.hands.length>=TOTAL_HANDS;
+  $('cMain').innerHTML = done? winInner() : entryInner(); if(!done) updateSum(); }
+function paintProg(){ $('cProg').innerHTML = progInner(); }
+function paintHist(){ $('cHist').innerHTML = histInner(); }
+
+/* ---------- setup ---------- */
+function setupHTML(){
+  let rows='';
+  for(let i=0;i<4;i++) rows+=`<div class="nm"><span class="dot"></span>
+    <input type="text" id="nm${i}" maxlength="14" placeholder="Oyuncu ${i+1}" value="${esc(state.players[i]||'')}"></div>`;
+  return `<section class="card"><h2>Oyuncular</h2>${rows}
+    <button class="btn" style="margin-top:6px" onclick="startGame()">Oyunu Başlat</button></section>`;
+}
+
+/* ---------- scoreboard ---------- */
+function scoreInner(){
+  const t=totals();
+  let tiles='';
+  for(let i=0;i<4;i++){ const du=dealerUsed(i), lead=t[i]>0;
+    tiles+=`<div class="ptile ${lead?'lead':''}">${lead?'<span class="star">★</span>':''}
+      <div class="pn">${esc(state.players[i])}</div>
+      <div class="ps ${cls(t[i])}">${fmt(t[i])}</div>
+      <div class="pm">${du.ceza}/3 · ${du.koz}/2</div></div>`; }
+  return `<h2>Puan Durumu</h2><div class="scores">${tiles}</div>`;
+}
+
+/* ---------- entry ---------- */
+function entryInner(){
+  const dOpts=state.players.map((p,i)=>`<option value="${i}" ${draft.dealer===i?'selected':''}>${esc(p)}</option>`).join('');
+  const du=dealerUsed(draft.dealer);
+  const firstTurn=(du.ceza+du.koz)===0;   // bu oyuncunun ilk eli → koz yok
+  let cOpts='<option value="">Seçiniz…</option>';
+  for(const g of ['ceza','koz']){
+    let inner='';
+    KEYS.filter(k=>CONTRACTS[k].kind===g).forEach(k=>{ const c=CONTRACTS[k];
+      const rem=MAX_PER-used(k), cap=g==='ceza'?CEZA_CAP-du.ceza:KOZ_CAP-du.koz, dis=rem<=0||cap<=0||(g==='koz'&&firstTurn);
+      inner+=`<option value="${k}" ${draft.contract===k?'selected':''} ${dis?'disabled':''}>${c.name}${c.sym?' '+c.sym:''} · ${rem>0?rem+' kaldı':'bitti'}</option>`; });
+    const lbl=g==='ceza'?'Cezalar':(firstTurn?'Kozlar · ilk elde seçilemez':'Kozlar');
+    cOpts+=`<optgroup label="${lbl}">${inner}</optgroup>`;
+  }
+  let body='';
+  if(draft.contract){ const c=CONTRACTS[draft.contract]; let rows='';
+    for(let i=0;i<4;i++){ const v=draft.counts[i]||0, sc=v*c.unit;
+      rows+=`<div class="crow"><div class="who"><div class="n">${esc(state.players[i])}</div>
+        <div class="v ${cls(sc)}" id="pv${i}">${fmt(sc)}</div></div>
+        <div class="stp"><button onclick="bump(${i},-1)">−</button>
+        <input type="number" id="ct${i}" inputmode="numeric" value="${v}" oninput="setCount(${i},this.value)">
+        <button id="plus${i}" onclick="bump(${i},1)">+</button></div></div>`; }
+    body=`<div class="field" style="margin-top:4px">
+        <label>${c.kind==='koz'?'Alınan el':'Alınan adet'}<span class="unit-tag">birim ${fmt(c.unit)}</span></label>
+        ${rows}</div>
+      <div class="sum" id="sum"></div>
+      <button class="btn" id="save" onclick="saveHand()">Eli Kaydet</button>`;
+  }
+  return `<h2>${state.hands.length+1}. El</h2>
+    <div class="field"><label>El sahibi</label>
+      <select onchange="setDealer(this.value)">${dOpts}</select></div>
+    <div class="field"><label>Ne oynanıyor</label>
+      <select onchange="setContract(this.value)">${cOpts}</select></div>${body}`;
+}
+
+/* ---------- progress ---------- */
+function progInner(){
+  let cz='',kz='';
+  KEYS.forEach(k=>{ const c=CONTRACTS[k], u=used(k);
+    const chip=`<span class="chip ${u>=MAX_PER?'done':''}">${c.name}${c.sym?' '+c.sym:''}<span class="ct">${u}/2</span></span>`;
+    if(c.kind==='ceza') cz+=chip; else kz+=chip; });
+  return `<h2>İlerleme · ${state.hands.length}/20</h2>
+    <div class="grp-lbl">Cezalar</div><div class="chips">${cz}</div>
+    <div class="grp-lbl">Kozlar</div><div class="chips">${kz}</div>`;
+}
+
+/* ---------- history ---------- */
+function histInner(){
+  const head=`<tr><th>#</th><th class="lbl">Kontrat</th>`+state.players.map(p=>`<th>${esc(p)}</th>`).join('')+`</tr>`;
+  let rows='';
+  state.hands.forEach((h,i)=>{ const c=CONTRACTS[h.contract];
+    rows+=`<tr><td class="muted">${i+1}</td>
+      <td class="lbl">${c.name}${c.sym?' '+c.sym:''}<span class="knd ${c.kind}">${c.kind==='koz'?'+':'–'}</span>
+        <small>${esc(state.players[h.dealer])}</small></td>`+
+      h.scores.map(s=>`<td class="${cls(s)}">${s===0?'0':fmt(s)}</td>`).join('')+`</tr>`; });
+  const t=totals();
+  const foot=`<tr><td></td><td class="lbl">Toplam</td>`+t.map(s=>`<td class="${cls(s)}">${fmt(s)}</td>`).join('')+`</tr>`;
+  const tbl = state.hands.length
+    ? `<table><thead>${head}</thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table>`
+    : `<div class="empty">Henüz el girilmedi</div>`;
+  const del = state.hands.length?`<button class="btn-ghost" onclick="deleteLast()">Son eli sil</button>`:'';
+  return `<h2>El Geçmişi</h2>${tbl}
+    <div class="toolbar">${del}<button class="btn-ghost danger" onclick="resetGame()">Yeni oyun</button></div>`;
+}
+
+/* ---------- winner ---------- */
+function winInner(){
+  const t=totals();
+  const win=state.players.map((p,i)=>({p,s:t[i]})).filter(o=>o.s>0).sort((a,b)=>b.s-a.s);
+  const sum=t.reduce((a,b)=>a+b,0), ok=sum===0;
+  const list = win.length
+    ? win.map(o=>`<div class="wrow"><span>${esc(o.p)}</span><span class="pos">${fmt(o.s)}</span></div>`).join('')
+    : `<div class="sc">Galip yok — kimse artıda değil</div>`;
+  return `<div class="win"><div class="t">🏆</div>
+    <div class="lbl">${win.length>1?'Galipler · '+win.length+' kişi':'Galip'}</div>
+    <div class="wlist">${list}</div>
+    <div class="sc">artıda (+) bitiren kazanır</div>
+    <div class="verify ${ok?'ok':'bad'}">${ok?'✓ Toplam 0 · tutarlı':'⚠ Toplam '+fmt(sum)+' (0 olmalı)'}</div></div>`;
+}
+
+/* ---------- interactions ---------- */
+function setDealer(v){ draft.dealer=+v; draft.contract=''; draft.counts=[0,0,0,0]; paintMain(); }
+function setContract(v){ draft.contract=v; draft.counts=[0,0,0,0]; paintMain(); }
+function setCount(i,v){ const c=CONTRACTS[draft.contract]; let n=parseInt(v,10);
+  if(isNaN(n)||n<0)n=0;
+  const others=draft.counts.reduce((a,b)=>a+b,0)-(draft.counts[i]||0);
+  const maxA=c.total-others;            // toplam, kontrat adedini geçemez
+  if(n>maxA)n=maxA; if(n<0)n=0;
+  draft.counts[i]=n;
+  const el=$('ct'+i); if(el&&el.value!=String(n))el.value=n; updateSum(); }
+function bump(i,d){ setCount(i,(draft.counts[i]||0)+d); }
+function updateSum(){ const c=CONTRACTS[draft.contract]; if(!c)return;
+  const s=draft.counts.reduce((a,b)=>a+b,0), ok=s===c.total, full=s>=c.total;
+  for(let i=0;i<4;i++){ const pv=$('pv'+i); if(pv){ const sc=draft.counts[i]*c.unit; pv.textContent=fmt(sc); pv.className='v '+cls(sc); }
+    const pb=$('plus'+i); if(pb) pb.disabled=full; }
+  const ln=$('sum'); if(ln){ ln.className='sum '+(ok?'ok':''); ln.innerHTML=`<span>Toplam alınan</span><span class="val">${s} / ${c.total}${ok?' ✓':''}</span>`; }
+  const b=$('save'); if(b)b.disabled=!ok;
+}
+function saveHand(){ const c=CONTRACTS[draft.contract]; if(!c)return;
+  const du0=dealerUsed(draft.dealer);
+  if(c.kind==='koz' && (du0.ceza+du0.koz)===0)return;   // oyuncunun ilk eli koz olamaz
+  if(draft.counts.reduce((a,b)=>a+b,0)!==c.total)return;
+  state.hands.push({dealer:draft.dealer, contract:draft.contract, counts:[...draft.counts], scores:draft.counts.map(n=>n*c.unit)});
+  persist(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain();
+}
+function deleteLast(){ if(!state.hands.length)return; if(!confirm('Son el silinsin mi?'))return;
+  state.hands.pop(); persist(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain(); }
+function startGame(){ const names=[];
+  for(let i=0;i<4;i++){ const v=$('nm'+i).value.trim(); names.push(v||('Oyuncu '+(i+1))); }
+  state.players=names; state.started=true; state.hands=[]; persist(); newDraft(); render(); }
+function resetGame(){ if(!confirm('Tüm skorlar silinsin mi?'))return;
+  state={players:state.players, started:false, hands:[]}; draft=null; persist(); render(); }
+
+render();
+</script>
+</body>
+</html>
