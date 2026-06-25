@@ -23,6 +23,7 @@
     background-attachment:fixed;
     color:var(--ink); min-height:100vh; padding:16px 14px 28px;
     -webkit-font-smoothing:antialiased; font-variant-numeric:tabular-nums;
+    touch-action:manipulation;   /* çift dokunuş zoom'unu engeller */
   }
   .wrap{max-width:680px;margin:0 auto}
   /* header */
@@ -33,12 +34,13 @@
   .suits .r{color:var(--neg);opacity:.85}
   .pill{font-size:12.5px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);padding:7px 13px;border-radius:999px}
   /* cards */
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px;backdrop-filter:blur(8px)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px;backdrop-filter:blur(8px)}
   .card.flat{background:transparent;border:none;padding:0;backdrop-filter:none}
   h2{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px}
   .muted{color:var(--muted)}
   /* buttons */
-  button{font-family:inherit;cursor:pointer;border:none;font-weight:600;font-size:15px;transition:transform .05s,background .15s,opacity .15s;color:var(--ink)}
+  button{font-family:inherit;cursor:pointer;border:none;font-weight:600;font-size:15px;transition:transform .05s,background .15s,opacity .15s;color:var(--ink);
+    touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
   button:active{transform:scale(.97)}
   .btn{width:100%;background:var(--accent);color:#fff;border-radius:13px;padding:15px;font-size:16px;letter-spacing:.3px}
   .btn:disabled{background:rgba(255,255,255,.07);color:var(--faint);cursor:default}
@@ -60,7 +62,13 @@
   .ptile.lead{background:var(--accent-soft)}
   .ptile .pn{font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
   .ptile .ps{font-size:26px;font-weight:700;letter-spacing:.5px}
-  .ptile .pm{font-size:10px;color:var(--faint);margin-top:4px}
+  .ptile .pm{display:flex;justify-content:center;gap:9px;margin-top:8px}
+  .slotwrap{display:inline-flex;gap:4px;align-items:center}
+  .slot{width:7px;height:7px;border:1.5px solid var(--faint);box-sizing:border-box;transition:background .15s,border-color .15s}
+  .slot.ceza{border-radius:2px}                                   /* ceza: köşeli */
+  .slot.koz{border-radius:50%}                                    /* koz: yuvarlak */
+  .slot.ceza.on{background:var(--neg);border-color:var(--neg)}    /* dolu ceza: kırmızı */
+  .slot.koz.on{background:var(--pos);border-color:var(--pos)}     /* dolu koz: yeşil */
   .ptile .star{position:absolute;top:2px;right:8px;font-size:11px;color:var(--gold)}
   .pos{color:var(--pos)} .neg{color:var(--neg)} .zero{color:var(--muted)}
   /* fields */
@@ -94,9 +102,8 @@
   .unit-tag{font-size:11px;color:var(--faint);font-weight:600;margin-left:7px}
   /* progress chips */
   .chips{display:flex;flex-wrap:wrap;gap:7px}
-  .chip{font-size:12px;font-weight:600;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--muted);display:flex;align-items:center;gap:6px}
-  .chip.done{opacity:.32}
-  .chip .ct{font-size:10.5px;color:var(--faint)}
+  .chip{font-size:12px;font-weight:600;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--muted);display:inline-flex;align-items:center;gap:7px}
+  .chip.done{opacity:.3}
   .grp-lbl{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px}
   .grp-lbl:first-child{margin-top:0}
   /* history */
@@ -164,10 +171,10 @@ const CONTRACTS = {
   erkek:  {name:'Erkek',    sym:'',  unit:-60,  total:8,  kind:'ceza'},
   soniki: {name:'Son İki',  sym:'',  unit:-180, total:2,  kind:'ceza'},
   rifki:  {name:'Rıfkı',    sym:'♥', unit:-320, total:1,  kind:'ceza'},
-  kmaca:  {name:'Koz · Maça',  sym:'♠', unit:50, total:13, kind:'koz'},
-  kkaro:  {name:'Koz · Karo',  sym:'♦', unit:50, total:13, kind:'koz'},
-  ksinek: {name:'Koz · Sinek', sym:'♣', unit:50, total:13, kind:'koz'},
-  kkupa:  {name:'Koz · Kupa',  sym:'♥', unit:50, total:13, kind:'koz'},
+  kmaca:  {name:'Maça',  sym:'♠', unit:50, total:13, kind:'koz'},
+  kkaro:  {name:'Karo',  sym:'♦', unit:50, total:13, kind:'koz'},
+  ksinek: {name:'Sinek', sym:'♣', unit:50, total:13, kind:'koz'},
+  kkupa:  {name:'Kupa',  sym:'♥', unit:50, total:13, kind:'koz'},
 };
 const KEYS = Object.keys(CONTRACTS);
 const MAX_PER = 2, CEZA_CAP = 3, KOZ_CAP = 2, TOTAL_HANDS = 20;
@@ -185,6 +192,7 @@ function dealerUsed(p){ const hs=state.hands.filter(h=>h.dealer===p);
   return {ceza:hs.filter(h=>CONTRACTS[h.contract].kind==='ceza').length, koz:hs.filter(h=>CONTRACTS[h.contract].kind==='koz').length}; }
 function fmt(n){ return (n>0?'+':'')+n; }
 function cls(n){ return n>0?'pos':(n<0?'neg':'zero'); }
+function slots(filled,total,kind){ let s=''; for(let i=0;i<total;i++) s+=`<span class="slot ${kind}${i<filled?' on':''}"></span>`; return `<span class="slotwrap">${s}</span>`; }
 function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function newDraft(){ draft={ dealer: state.hands.length%4, contract:'', counts:[0,0,0,0] }; }
 
@@ -227,7 +235,7 @@ function scoreInner(){
     tiles+=`<div class="ptile ${lead?'lead':''}">${lead?'<span class="star">★</span>':''}
       <div class="pn">${esc(state.players[i])}</div>
       <div class="ps ${cls(t[i])}">${fmt(t[i])}</div>
-      <div class="pm">${du.ceza}/3 · ${du.koz}/2</div></div>`; }
+      <div class="pm">${slots(du.ceza,CEZA_CAP,'ceza')}${slots(du.koz,KOZ_CAP,'koz')}</div></div>`; }
   return `<h2>Puan Durumu</h2><div class="scores">${tiles}</div>`;
 }
 
@@ -270,7 +278,7 @@ function entryInner(){
 function progInner(){
   let cz='',kz='';
   KEYS.forEach(k=>{ const c=CONTRACTS[k], u=used(k);
-    const chip=`<span class="chip ${u>=MAX_PER?'done':''}">${c.name}${c.sym?' '+c.sym:''}<span class="ct">${u}/2</span></span>`;
+    const chip=`<span class="chip ${u>=MAX_PER?'done':''}">${c.name}${c.sym?' '+c.sym:''} ${slots(u,MAX_PER,c.kind)}</span>`;
     if(c.kind==='ceza') cz+=chip; else kz+=chip; });
   return `<h2>İlerleme · ${state.hands.length}/20</h2>
     <div class="grp-lbl">Cezalar</div><div class="chips">${cz}</div>
