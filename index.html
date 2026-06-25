@@ -137,6 +137,17 @@
   details.rules .rb{font-size:12.5px;line-height:1.7;color:var(--muted);padding:12px 2px 2px}
   details.rules .rb b{color:var(--ink);font-weight:600}
   .foot{text-align:center;color:var(--faint);font-size:11px;margin-top:6px}
+  /* sekme + istatistik */
+  .nav{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:5px;margin-bottom:12px}
+  .navbtn{flex:1;background:transparent;color:var(--muted);border-radius:9px;padding:11px;font-size:14px;font-weight:600}
+  .navbtn.on{background:var(--accent);color:#fff}
+  .statcap{font-size:11.5px;color:var(--muted);margin-bottom:12px;line-height:1.55}
+  .statcap b{color:var(--ink)}
+  .scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -2px}
+  table.cross{font-size:12.5px;min-width:100%;border-collapse:collapse}
+  table.cross th,table.cross td{padding:9px 10px;white-space:nowrap;text-align:center;border-bottom:1px solid rgba(255,255,255,.05)}
+  table.cross thead th{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px}
+  table.cross td.lbl,table.cross th.lbl{position:sticky;left:0;background:#101a3c;text-align:left;font-weight:600;z-index:1}
 </style>
 </head>
 <body>
@@ -182,9 +193,38 @@ const STORE = 'king-tablo-v2';
 
 let state = load() || { players:['','','',''], started:false, hands:[] };
 let draft = null;
+let view = 'game';
+let archive = loadArchive() || [];
 
 function load(){ try{ return JSON.parse(localStorage.getItem(STORE)); }catch(e){ return null; } }
 function persist(){ localStorage.setItem(STORE, JSON.stringify(state)); }
+function loadArchive(){ try{ return JSON.parse(localStorage.getItem('king-arsiv-v1')); }catch(e){ return null; } }
+function saveArchive(){ localStorage.setItem('king-arsiv-v1', JSON.stringify(archive)); }
+function syncArchive(){              // tamamlanan oyunu arşive yaz (id ile, çift kayıt yok)
+  if(!state.id) return;
+  const idx=archive.findIndex(g=>g.id===state.id);
+  if(state.hands.length>=TOTAL_HANDS){
+    const rec={id:state.id,date:Date.now(),players:[...state.players],
+      hands:state.hands.map(h=>({dealer:h.dealer,contract:h.contract,scores:[...h.scores]}))};
+    if(idx>=0) archive[idx]=rec; else archive.push(rec);
+  } else if(idx>=0){ archive.splice(idx,1); }
+  saveArchive();
+}
+function allGames(){ const a=archive.slice();
+  if(state.started && state.hands.length>0 && !a.some(g=>g.id===state.id))
+    a.push({id:state.id,players:state.players,hands:state.hands});
+  return a; }
+function computeStats(){
+  const games=allGames(), set=new Set();
+  games.forEach(g=>g.players.forEach(n=>set.add(n)));
+  const list=[...set], sum={},gp={},wins={},cross={};
+  list.forEach(n=>{ sum[n]=0;gp[n]=0;wins[n]=0;cross[n]={}; list.forEach(t=>cross[n][t]=0); });
+  games.forEach(g=>{ const gt={}; g.players.forEach(n=>gt[n]=0);
+    g.hands.forEach(h=>{ const dn=g.players[h.dealer];
+      h.scores.forEach((s,i)=>{ const pn=g.players[i]; gt[pn]+=s; if(cross[dn]) cross[dn][pn]+=s; }); });
+    g.players.forEach(n=>{ gp[n]++; sum[n]+=gt[n]; if(gt[n]>0) wins[n]++; }); });
+  return {list,sum,gp,wins,cross,count:games.length};
+}
 
 function totals(){ const t=[0,0,0,0]; state.hands.forEach(h=>h.scores.forEach((s,i)=>t[i]+=s)); return t; }
 function used(key){ return state.hands.filter(h=>h.contract===key).length; }
@@ -200,14 +240,20 @@ const app = document.getElementById('app');
 const $ = id => document.getElementById(id);
 
 /* ---------- top-level ---------- */
+function navHTML(){ return `<div class="nav">
+  <button class="navbtn ${view==='game'?'on':''}" onclick="setView('game')">Oyun</button>
+  <button class="navbtn ${view==='stats'?'on':''}" onclick="setView('stats')">İstatistik</button></div>`; }
+function setView(v){ view=v; render(); }
+function gameShell(){ return '<section class="card" id="cScore"></section>'+
+  '<section class="card" id="cMain"></section>'+
+  '<section class="card" id="cProg"></section>'+
+  '<section class="card" id="cHist"></section>'; }
+
 function render(){
-  if(!state.started){ $('handPill').style.display='none'; app.innerHTML = setupHTML(); return; }
+  if(view==='stats'){ $('handPill').style.display='none'; app.innerHTML=navHTML()+statsHTML(); return; }
+  if(!state.started){ $('handPill').style.display='none'; app.innerHTML=navHTML()+setupHTML(); return; }
   if(!draft) newDraft();
-  app.innerHTML =
-    '<section class="card" id="cScore"></section>'+
-    '<section class="card" id="cMain"></section>'+
-    '<section class="card" id="cProg"></section>'+
-    '<section class="card" id="cHist"></section>';
+  app.innerHTML=navHTML()+gameShell();
   paintPill(); paintScore(); paintMain(); paintProg(); paintHist();
 }
 function paintPill(){ const done=state.hands.length>=TOTAL_HANDS; const e=$('handPill');
@@ -319,6 +365,29 @@ function winInner(){
     <div class="verify ${ok?'ok':'bad'}">${ok?'✓ Toplam 0 · tutarlı':'⚠ Toplam '+fmt(sum)+' (0 olmalı)'}</div></div>`;
 }
 
+/* ---------- istatistik ---------- */
+function statsHTML(){
+  const st=computeStats();
+  if(st.count===0 || st.list.length===0)
+    return `<section class="card"><h2>İstatistik</h2>
+      <div class="empty">Henüz veri yok.<br>Oyun oynadıkça isim bazlı istatistikler burada birikir.</div></section>`;
+  const order=st.list.slice().sort((a,b)=>st.sum[b]-st.sum[a]);
+  const rows=order.map(n=>`<tr><td class="lbl">${esc(n)}</td>
+    <td class="${cls(st.sum[n])}">${fmt(st.sum[n])}</td><td>${st.gp[n]}</td><td>${st.wins[n]}</td></tr>`).join('');
+  const summary=`<section class="card"><h2>Oyuncu Özeti · ${st.count} oyun</h2>
+    <table><thead><tr><th class="lbl">Oyuncu</th><th>Toplam</th><th>Oyun</th><th>Galip</th></tr></thead>
+    <tbody>${rows}</tbody></table></section>`;
+  const head=`<tr><th class="lbl">El sahibi</th>${order.map(n=>`<th>${esc(n)}</th>`).join('')}</tr>`;
+  const crows=order.map(d=>`<tr><td class="lbl">${esc(d)}</td>${order.map(t=>{
+    const v=st.cross[d][t]; return `<td class="${cls(v)}">${v===0?'·':fmt(v)}</td>`; }).join('')}</tr>`).join('');
+  const cross=`<section class="card"><h2>El Sahibi × Toplanan Puan</h2>
+    <div class="statcap">Soldaki kişi <b>el sahibiyken</b>, üstteki kişinin <b>topladığı toplam puan</b> (tüm oyunlar).</div>
+    <div class="scrollx"><table class="cross"><thead>${head}</thead><tbody>${crows}</tbody></table></div></section>`;
+  const reset=`<section class="card flat"><button class="btn-ghost danger" style="width:100%" onclick="resetStats()">İstatistikleri sıfırla</button></section>`;
+  return summary+cross+reset;
+}
+function resetStats(){ if(!confirm('Tüm oyun istatistikleri silinsin mi?'))return; archive=[]; saveArchive(); render(); }
+
 /* ---------- interactions ---------- */
 function setDealer(v){ draft.dealer=+v; draft.contract=''; draft.counts=[0,0,0,0]; paintMain(); }
 function setContract(v){ draft.contract=v; draft.counts=[0,0,0,0]; paintMain(); }
@@ -342,16 +411,18 @@ function saveHand(){ const c=CONTRACTS[draft.contract]; if(!c)return;
   if(c.kind==='koz' && (du0.ceza+du0.koz)===0)return;   // oyuncunun ilk eli koz olamaz
   if(draft.counts.reduce((a,b)=>a+b,0)!==c.total)return;
   state.hands.push({dealer:draft.dealer, contract:draft.contract, counts:[...draft.counts], scores:draft.counts.map(n=>n*c.unit)});
-  persist(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain();
+  persist(); syncArchive(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain();
 }
 function deleteLast(){ if(!state.hands.length)return; if(!confirm('Son el silinsin mi?'))return;
-  state.hands.pop(); persist(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain(); }
+  state.hands.pop(); persist(); syncArchive(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain(); }
 function startGame(){ const names=[];
   for(let i=0;i<4;i++){ const v=$('nm'+i).value.trim(); names.push(v||('Oyuncu '+(i+1))); }
-  state.players=names; state.started=true; state.hands=[]; persist(); newDraft(); render(); }
+  state.players=names; state.started=true; state.hands=[]; state.id='g'+Date.now(); view='game'; persist(); newDraft(); render(); }
 function resetGame(){ if(!confirm('Tüm skorlar silinsin mi?'))return;
   state={players:state.players, started:false, hands:[]}; draft=null; persist(); render(); }
 
+if(state.started && !state.id){ state.id='g'+Date.now(); persist(); }
+syncArchive();
 render();
 </script>
 </body>
