@@ -64,11 +64,11 @@
   .ptile .ps{font-size:26px;font-weight:700;letter-spacing:.5px}
   .ptile .pm{display:flex;justify-content:center;gap:9px;margin-top:8px}
   .slotwrap{display:inline-flex;gap:4px;align-items:center}
-  .slot{width:7px;height:7px;border:1.5px solid var(--faint);box-sizing:border-box;transition:background .15s,border-color .15s}
-  .slot.ceza{border-radius:2px}                                   /* ceza: köşeli */
-  .slot.koz{border-radius:50%}                                    /* koz: yuvarlak */
-  .slot.ceza.on{background:var(--neg);border-color:var(--neg)}    /* dolu ceza: kırmızı */
-  .slot.koz.on{background:var(--pos);border-color:var(--pos)}     /* dolu koz: yeşil */
+  .slot{width:9px;height:9px;box-sizing:border-box;background:rgba(255,255,255,.16);transition:background .15s}
+  .slot.ceza{border-radius:50%}                                  /* ceza: yuvarlak */
+  .slot.koz{clip-path:polygon(50% 0%,0% 100%,100% 100%)}         /* koz: üçgen */
+  .slot.ceza.on{background:var(--neg)}                           /* dolu ceza: kırmızı */
+  .slot.koz.on{background:var(--pos)}                            /* dolu koz: yeşil */
   .ptile .star{position:absolute;top:2px;right:8px;font-size:11px;color:var(--gold)}
   .pos{color:var(--pos)} .neg{color:var(--neg)} .zero{color:var(--muted)}
   /* fields */
@@ -81,11 +81,12 @@
     background-repeat:no-repeat;background-position:right 15px center}
   select:focus{outline:none;border-color:var(--accent)}
   select option{color:#111}
+  .dealerbox{background:rgba(91,124,255,.12);border:1px solid rgba(91,124,255,.32);border-radius:12px;padding:14px;font-size:18px;font-weight:700;color:var(--ink)}
   /* steppers */
   .crow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line)}
   .crow:last-of-type{border-bottom:none}
   .crow .who{min-width:0}
-  .crow .who .n{font-size:15.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crow .who .n{font-size:18.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .crow .who .v{font-size:12px;font-weight:600;margin-top:1px}
   .stp{display:flex;align-items:center;gap:0;flex:0 0 auto}
   .stp button{width:40px;height:40px;font-size:22px;background:var(--panel-2);border:1px solid var(--line);line-height:1;color:var(--ink)}
@@ -334,7 +335,6 @@ function scoreInner(){
 
 /* ---------- entry ---------- */
 function entryInner(){
-  const dOpts=state.players.map((p,i)=>`<option value="${i}" ${draft.dealer===i?'selected':''}>${esc(p)}</option>`).join('');
   const du=dealerUsed(draft.dealer);
   const firstTurn=(du.ceza+du.koz)===0;   // bu oyuncunun ilk eli → koz yok
   let cOpts='<option value="">Seçiniz…</option>';
@@ -361,8 +361,8 @@ function entryInner(){
       <button class="btn" id="save" onclick="saveHand()">Eli Kaydet</button>`;
   }
   return `<h2>${state.hands.length+1}. El</h2>
-    <div class="field"><label>El sahibi</label>
-      <select onchange="setDealer(this.value)">${dOpts}</select></div>
+    <div class="field"><label>El sahibi (sırayla)</label>
+      <div class="dealerbox">${esc(state.players[draft.dealer])}</div></div>
     <div class="field"><label>Ne oynanıyor</label>
       <select onchange="setContract(this.value)">${cOpts}</select></div>${body}`;
 }
