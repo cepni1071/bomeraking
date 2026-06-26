@@ -239,21 +239,37 @@ function allGames(){ const a=archive.slice();
   if(state.started && state.hands.length>0 && !state.cloudSaved)
     a.push({players:state.players,hands:state.hands});
   return a; }
-function knownNames(){ const s=new Set(); archive.forEach(g=>g.players.forEach(n=>s.add(n))); return [...s].sort(); }
+function normName(s){            // büyük/küçük + Türkçe karakter farklarını birleştir
+  return String(s).trim()
+    .replace(/[şŞ]/g,'s').replace(/[ıİiI]/g,'i').replace(/[çÇ]/g,'c')
+    .replace(/[ğĞ]/g,'g').replace(/[öÖ]/g,'o').replace(/[üÜ]/g,'u')
+    .toLowerCase().replace(/\s+/g,' '); }
+function chosenDisplay(counts){ return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0]; }
+function knownNames(){           // her kişi için tek (en sık) yazım
+  const m={}; archive.forEach(g=>g.players.forEach(n=>{ const k=normName(n); (m[k]=m[k]||{})[n]=(m[k][n]||0)+1; }));
+  return Object.values(m).map(chosenDisplay).sort(); }
 function computeStats(){
-  const games=allGames(), set=new Set();
-  games.forEach(g=>g.players.forEach(n=>set.add(n)));
-  const list=[...set], sum={},gp={},wins={},cross={},rE={},rT={},koz={},avg={};
-  list.forEach(n=>{ sum[n]=0;gp[n]=0;wins[n]=0;rE[n]=0;rT[n]=0;koz[n]=0;cross[n]={}; list.forEach(t=>cross[n][t]=0); });
-  games.forEach(g=>{ const gt={}; g.players.forEach(n=>gt[n]=0);
+  const games=allGames();
+  const nameCount={};
+  games.forEach(g=>g.players.forEach(n=>{ const k=normName(n); (nameCount[k]=nameCount[k]||{})[n]=(nameCount[k][n]||0)+1; }));
+  const keys=Object.keys(nameCount), disp={};
+  keys.forEach(k=>{ disp[k]=chosenDisplay(nameCount[k]); });
+  const sum={},gp={},wins={},cross={},rE={},rT={},koz={};
+  keys.forEach(n=>{ sum[n]=0;gp[n]=0;wins[n]=0;rE[n]=0;rT[n]=0;koz[n]=0;cross[n]={}; keys.forEach(t=>cross[n][t]=0); });
+  games.forEach(g=>{ const pk=g.players.map(normName), gt={}; pk.forEach(n=>gt[n]=0);
     const rifkiCount=g.hands.filter(h=>h.contract==='rifki').length;
-    g.hands.forEach(h=>{ const dn=g.players[h.dealer], c=CONTRACTS[h.contract];
-      h.scores.forEach((s,i)=>{ const pn=g.players[i]; gt[pn]+=s; if(cross[dn]) cross[dn][pn]+=s;
+    g.hands.forEach(h=>{ const dn=pk[h.dealer], c=CONTRACTS[h.contract];
+      h.scores.forEach((s,i)=>{ const pn=pk[i]; gt[pn]+=s; if(cross[dn]) cross[dn][pn]+=s;
         if(c&&c.kind==='koz') koz[pn]+=s;
         if(h.contract==='rifki' && s===-320) rE[pn]++; }); });
-    g.players.forEach(n=>{ gp[n]++; sum[n]+=gt[n]; if(gt[n]>0) wins[n]++; rT[n]+=rifkiCount; }); });
-  list.forEach(n=>{ avg[n]= gp[n]? Math.round(sum[n]/gp[n]) : 0; });
-  return {list,sum,gp,wins,cross,rE,rT,koz,avg,count:games.length};
+    [...new Set(pk)].forEach(n=>{ gp[n]++; sum[n]+=gt[n]; if(gt[n]>0) wins[n]++; rT[n]+=rifkiCount; }); });
+  // görünen ada göre çıktıya çevir
+  const out={list:keys.map(k=>disp[k]), sum:{},gp:{},wins:{},cross:{},rE:{},rT:{},koz:{},avg:{}, count:games.length};
+  keys.forEach(n=>{ const d=disp[n];
+    out.sum[d]=sum[n]; out.gp[d]=gp[n]; out.wins[d]=wins[n]; out.rE[d]=rE[n]; out.rT[d]=rT[n]; out.koz[d]=koz[n];
+    out.avg[d]= gp[n]? Math.round(sum[n]/gp[n]) : 0;
+    out.cross[d]={}; keys.forEach(t=>{ out.cross[d][disp[t]]=cross[n][t]; }); });
+  return out;
 }
 
 function totals(){ const t=[0,0,0,0]; state.hands.forEach(h=>h.scores.forEach((s,i)=>t[i]+=s)); return t; }
