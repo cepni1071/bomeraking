@@ -148,6 +148,14 @@
   table.cross th,table.cross td{padding:9px 10px;white-space:nowrap;text-align:center;border-bottom:1px solid rgba(255,255,255,.05)}
   table.cross thead th{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px}
   table.cross td.lbl,table.cross th.lbl{position:sticky;left:0;background:#101a3c;text-align:left;font-weight:600;z-index:1}
+  .lb{display:flex;flex-direction:column;gap:8px}
+  .lbrow{display:flex;align-items:center;gap:11px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px}
+  .lbrow.first{background:rgba(243,201,105,.10);border-color:rgba(243,201,105,.32)}
+  .lbrank{font-size:17px;font-weight:700;color:var(--muted);width:24px;text-align:center;flex:0 0 auto}
+  .lbinfo{display:flex;flex-direction:column;min-width:0}
+  .lbname{font-size:15.5px;font-weight:700}
+  .lbsub{font-size:11px;color:var(--muted)}
+  .lbtot{margin-left:auto;font-size:19px;font-weight:800}
 </style>
 </head>
 <body>
@@ -404,14 +412,16 @@ function statsHTML(){
     return `<section class="card"><h2>İstatistik</h2>${cloudBadge()}
       <div class="empty">Henüz kayıtlı oyun yok.<br>Oyun bitince buluta kaydedilir ve burada herkeste birikir.</div></section>`;
   const order=st.list.slice().sort((a,b)=>st.sum[b]-st.sum[a]);
-  // özet
-  const rows=order.map(n=>{ const wp=st.gp[n]?Math.round(st.wins[n]/st.gp[n]*100):0;
-    return `<tr><td class="lbl">${esc(n)}</td>
-    <td class="${cls(st.sum[n])}">${fmt(st.sum[n])}</td><td>${st.gp[n]}</td>
-    <td>${st.wins[n]} <span class="muted">%${wp}</span></td></tr>`; }).join('');
-  const summary=`<section class="card"><h2>Oyuncu Özeti · ${st.count} oyun</h2>${cloudBadge()}
-    <table><thead><tr><th class="lbl">Oyuncu</th><th>Toplam</th><th>Oyun</th><th>Galip</th></tr></thead>
-    <tbody>${rows}</tbody></table></section>`;
+  // tüm zamanlar sıralaması (madalyalı)
+  const medals=['🥇','🥈','🥉'];
+  const lb=order.map((n,idx)=>{ const wp=st.gp[n]?Math.round(st.wins[n]/st.gp[n]*100):0;
+    return `<div class="lbrow${idx===0?' first':''}">
+      <span class="lbrank">${idx<3?medals[idx]:(idx+1)}</span>
+      <div class="lbinfo"><span class="lbname">${esc(n)}</span>
+        <span class="lbsub">${st.gp[n]} oyun · ${st.wins[n]} galip · %${wp}</span></div>
+      <span class="lbtot ${cls(st.sum[n])}">${fmt(st.sum[n])}</span></div>`; }).join('');
+  const summary=`<section class="card"><h2>Tüm Zamanlar · ${st.count} oyun</h2>${cloudBadge()}
+    <div class="lb">${lb}</div></section>`;
   // analiz
   const arows=order.map(n=>{ const rp=st.rT[n]?Math.round(st.rE[n]/st.rT[n]*100):null;
     return `<tr><td class="lbl">${esc(n)}</td>
