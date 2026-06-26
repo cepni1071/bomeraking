@@ -194,36 +194,58 @@ const STORE = 'king-tablo-v2';
 let state = load() || { players:['','','',''], started:false, hands:[] };
 let draft = null;
 let view = 'game';
-let archive = loadArchive() || [];
+let archive = [];            // bulut (Supabase) oyun kayıtları
+let cloudState = 'loading';  // loading | ok | error
+const SB_URL = 'https://scdjkbrpqfvphexryfzu.supabase.co';
+const SB_KEY = 'sb_publishable_uK-DHrM29dQaaHp3OTidyw_Q1dcLRBB';
+const SB_HEAD = { apikey:SB_KEY, Authorization:'Bearer '+SB_KEY };
 
 function load(){ try{ return JSON.parse(localStorage.getItem(STORE)); }catch(e){ return null; } }
 function persist(){ localStorage.setItem(STORE, JSON.stringify(state)); }
-function loadArchive(){ try{ return JSON.parse(localStorage.getItem('king-arsiv-v1')); }catch(e){ return null; } }
-function saveArchive(){ localStorage.setItem('king-arsiv-v1', JSON.stringify(archive)); }
-function syncArchive(){              // tamamlanan oyunu arşive yaz (id ile, çift kayıt yok)
-  if(!state.id) return;
-  const idx=archive.findIndex(g=>g.id===state.id);
-  if(state.hands.length>=TOTAL_HANDS){
-    const rec={id:state.id,date:Date.now(),players:[...state.players],
-      hands:state.hands.map(h=>({dealer:h.dealer,contract:h.contract,scores:[...h.scores]}))};
-    if(idx>=0) archive[idx]=rec; else archive.push(rec);
-  } else if(idx>=0){ archive.splice(idx,1); }
-  saveArchive();
+
+async function cloudFetch(){
+  cloudState='loading';
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/bomeraking_games?select=*&order=created_at.asc',{headers:SB_HEAD});
+    if(!r.ok) throw 0;
+    archive=await r.json(); cloudState='ok';
+  }catch(e){ cloudState='error'; }
+  if(view==='stats') render();
+  const dl=$('knownNames'); if(dl) dl.innerHTML=knownNames().map(n=>`<option value="${esc(n)}">`).join('');
+}
+async function cloudSave(){
+  if(state.cloudSaved || !state.started) return;
+  const btn=$('cloudBtn'); if(btn){ btn.disabled=true; btn.textContent='Kaydediliyor…'; }
+  try{
+    const body={ players:state.players, hands:state.hands.map(h=>({dealer:h.dealer,contract:h.contract,scores:h.scores})) };
+    const r=await fetch(SB_URL+'/rest/v1/bomeraking_games',{method:'POST',
+      headers:{...SB_HEAD,'Content-Type':'application/json',Prefer:'return=representation'},
+      body:JSON.stringify(body)});
+    if(!r.ok) throw 0;
+    state.cloudSaved=true; persist();
+    await cloudFetch();
+    if(view==='game') paintMain();
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='☁︎ Tekrar dene'; } }
 }
 function allGames(){ const a=archive.slice();
-  if(state.started && state.hands.length>0 && !a.some(g=>g.id===state.id))
-    a.push({id:state.id,players:state.players,hands:state.hands});
+  if(state.started && state.hands.length>0 && !state.cloudSaved)
+    a.push({players:state.players,hands:state.hands});
   return a; }
+function knownNames(){ const s=new Set(); archive.forEach(g=>g.players.forEach(n=>s.add(n))); return [...s].sort(); }
 function computeStats(){
   const games=allGames(), set=new Set();
   games.forEach(g=>g.players.forEach(n=>set.add(n)));
-  const list=[...set], sum={},gp={},wins={},cross={};
-  list.forEach(n=>{ sum[n]=0;gp[n]=0;wins[n]=0;cross[n]={}; list.forEach(t=>cross[n][t]=0); });
+  const list=[...set], sum={},gp={},wins={},cross={},rE={},rT={},koz={},avg={};
+  list.forEach(n=>{ sum[n]=0;gp[n]=0;wins[n]=0;rE[n]=0;rT[n]=0;koz[n]=0;cross[n]={}; list.forEach(t=>cross[n][t]=0); });
   games.forEach(g=>{ const gt={}; g.players.forEach(n=>gt[n]=0);
-    g.hands.forEach(h=>{ const dn=g.players[h.dealer];
-      h.scores.forEach((s,i)=>{ const pn=g.players[i]; gt[pn]+=s; if(cross[dn]) cross[dn][pn]+=s; }); });
-    g.players.forEach(n=>{ gp[n]++; sum[n]+=gt[n]; if(gt[n]>0) wins[n]++; }); });
-  return {list,sum,gp,wins,cross,count:games.length};
+    const rifkiCount=g.hands.filter(h=>h.contract==='rifki').length;
+    g.hands.forEach(h=>{ const dn=g.players[h.dealer], c=CONTRACTS[h.contract];
+      h.scores.forEach((s,i)=>{ const pn=g.players[i]; gt[pn]+=s; if(cross[dn]) cross[dn][pn]+=s;
+        if(c&&c.kind==='koz') koz[pn]+=s;
+        if(h.contract==='rifki' && s===-320) rE[pn]++; }); });
+    g.players.forEach(n=>{ gp[n]++; sum[n]+=gt[n]; if(gt[n]>0) wins[n]++; rT[n]+=rifkiCount; }); });
+  list.forEach(n=>{ avg[n]= gp[n]? Math.round(sum[n]/gp[n]) : 0; });
+  return {list,sum,gp,wins,cross,rE,rT,koz,avg,count:games.length};
 }
 
 function totals(){ const t=[0,0,0,0]; state.hands.forEach(h=>h.scores.forEach((s,i)=>t[i]+=s)); return t; }
@@ -268,8 +290,9 @@ function paintHist(){ $('cHist').innerHTML = histInner(); }
 function setupHTML(){
   let rows='';
   for(let i=0;i<4;i++) rows+=`<div class="nm"><span class="dot"></span>
-    <input type="text" id="nm${i}" maxlength="14" placeholder="Oyuncu ${i+1}" value="${esc(state.players[i]||'')}"></div>`;
-  return `<section class="card"><h2>Oyuncular</h2>${rows}
+    <input type="text" id="nm${i}" list="knownNames" maxlength="14" placeholder="Oyuncu ${i+1}" value="${esc(state.players[i]||'')}"></div>`;
+  const dl=`<datalist id="knownNames">${knownNames().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`;
+  return `<section class="card"><h2>Oyuncular</h2>${rows}${dl}
     <button class="btn" style="margin-top:6px" onclick="startGame()">Oyunu Başlat</button></section>`;
 }
 
@@ -358,35 +381,56 @@ function winInner(){
   const list = win.length
     ? win.map(o=>`<div class="wrow"><span>${esc(o.p)}</span><span class="pos">${fmt(o.s)}</span></div>`).join('')
     : `<div class="sc">Galip yok — kimse artıda değil</div>`;
+  const cloud = state.cloudSaved
+    ? '<div class="verify ok" style="margin-top:8px">☁︎ Buluta kaydedildi</div>'
+    : '<button class="btn" id="cloudBtn" style="margin-top:14px" onclick="cloudSave()">☁︎ Buluta kaydet</button>';
   return `<div class="win"><div class="t">🏆</div>
     <div class="lbl">${win.length>1?'Galipler · '+win.length+' kişi':'Galip'}</div>
     <div class="wlist">${list}</div>
     <div class="sc">artıda (+) bitiren kazanır</div>
-    <div class="verify ${ok?'ok':'bad'}">${ok?'✓ Toplam 0 · tutarlı':'⚠ Toplam '+fmt(sum)+' (0 olmalı)'}</div></div>`;
+    <div class="verify ${ok?'ok':'bad'}">${ok?'✓ Toplam 0 · tutarlı':'⚠ Toplam '+fmt(sum)+' (0 olmalı)'}</div>
+    ${cloud}</div>`;
 }
 
 /* ---------- istatistik ---------- */
+function cloudBadge(){
+  if(cloudState==='loading') return `<div class="statcap">☁︎ Bulut verileri yükleniyor…</div>`;
+  if(cloudState==='error')   return `<div class="statcap" style="color:var(--neg)">⚠ Buluta bağlanılamadı (internet?). Görünen veriler eksik olabilir.</div>`;
+  return '';
+}
 function statsHTML(){
   const st=computeStats();
   if(st.count===0 || st.list.length===0)
-    return `<section class="card"><h2>İstatistik</h2>
-      <div class="empty">Henüz veri yok.<br>Oyun oynadıkça isim bazlı istatistikler burada birikir.</div></section>`;
+    return `<section class="card"><h2>İstatistik</h2>${cloudBadge()}
+      <div class="empty">Henüz kayıtlı oyun yok.<br>Oyun bitince buluta kaydedilir ve burada herkeste birikir.</div></section>`;
   const order=st.list.slice().sort((a,b)=>st.sum[b]-st.sum[a]);
-  const rows=order.map(n=>`<tr><td class="lbl">${esc(n)}</td>
-    <td class="${cls(st.sum[n])}">${fmt(st.sum[n])}</td><td>${st.gp[n]}</td><td>${st.wins[n]}</td></tr>`).join('');
-  const summary=`<section class="card"><h2>Oyuncu Özeti · ${st.count} oyun</h2>
+  // özet
+  const rows=order.map(n=>{ const wp=st.gp[n]?Math.round(st.wins[n]/st.gp[n]*100):0;
+    return `<tr><td class="lbl">${esc(n)}</td>
+    <td class="${cls(st.sum[n])}">${fmt(st.sum[n])}</td><td>${st.gp[n]}</td>
+    <td>${st.wins[n]} <span class="muted">%${wp}</span></td></tr>`; }).join('');
+  const summary=`<section class="card"><h2>Oyuncu Özeti · ${st.count} oyun</h2>${cloudBadge()}
     <table><thead><tr><th class="lbl">Oyuncu</th><th>Toplam</th><th>Oyun</th><th>Galip</th></tr></thead>
     <tbody>${rows}</tbody></table></section>`;
+  // analiz
+  const arows=order.map(n=>{ const rp=st.rT[n]?Math.round(st.rE[n]/st.rT[n]*100):null;
+    return `<tr><td class="lbl">${esc(n)}</td>
+    <td class="${cls(st.avg[n])}">${fmt(st.avg[n])}</td>
+    <td>${rp===null?'–':'%'+rp+' <span class="muted">('+st.rE[n]+'/'+st.rT[n]+')</span>'}</td>
+    <td class="${st.koz[n]>0?'pos':'zero'}">${st.koz[n]>0?'+'+st.koz[n]:0}</td></tr>`; }).join('');
+  const analiz=`<section class="card"><h2>Analiz</h2>
+    <div class="statcap"><b>Ort:</b> oyun başı ortalama · <b>Rıfkı:</b> oynanan rıfkı ellerinin yüzde kaçında Rıfkı'yı sen aldın · <b>Koz+:</b> kozlardan toplam kazanç.</div>
+    <div class="scrollx"><table class="cross"><thead><tr><th class="lbl">Oyuncu</th><th>Ort</th><th>Rıfkı</th><th>Koz+</th></tr></thead>
+    <tbody>${arows}</tbody></table></div></section>`;
+  // çapraz
   const head=`<tr><th class="lbl">El sahibi</th>${order.map(n=>`<th>${esc(n)}</th>`).join('')}</tr>`;
   const crows=order.map(d=>`<tr><td class="lbl">${esc(d)}</td>${order.map(t=>{
     const v=st.cross[d][t]; return `<td class="${cls(v)}">${v===0?'·':fmt(v)}</td>`; }).join('')}</tr>`).join('');
   const cross=`<section class="card"><h2>El Sahibi × Toplanan Puan</h2>
-    <div class="statcap">Soldaki kişi <b>el sahibiyken</b>, üstteki kişinin <b>topladığı toplam puan</b> (tüm oyunlar).</div>
+    <div class="statcap">Soldaki kişi <b>el sahibiyken</b>, üstteki kişinin <b>topladığı toplam puan</b>.</div>
     <div class="scrollx"><table class="cross"><thead>${head}</thead><tbody>${crows}</tbody></table></div></section>`;
-  const reset=`<section class="card flat"><button class="btn-ghost danger" style="width:100%" onclick="resetStats()">İstatistikleri sıfırla</button></section>`;
-  return summary+cross+reset;
+  return summary+analiz+cross;
 }
-function resetStats(){ if(!confirm('Tüm oyun istatistikleri silinsin mi?'))return; archive=[]; saveArchive(); render(); }
 
 /* ---------- interactions ---------- */
 function setDealer(v){ draft.dealer=+v; draft.contract=''; draft.counts=[0,0,0,0]; paintMain(); }
@@ -411,19 +455,19 @@ function saveHand(){ const c=CONTRACTS[draft.contract]; if(!c)return;
   if(c.kind==='koz' && (du0.ceza+du0.koz)===0)return;   // oyuncunun ilk eli koz olamaz
   if(draft.counts.reduce((a,b)=>a+b,0)!==c.total)return;
   state.hands.push({dealer:draft.dealer, contract:draft.contract, counts:[...draft.counts], scores:draft.counts.map(n=>n*c.unit)});
-  persist(); syncArchive(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain();
+  persist(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain();
+  if(state.hands.length>=TOTAL_HANDS && !state.cloudSaved) cloudSave();   // bitti → buluta
 }
 function deleteLast(){ if(!state.hands.length)return; if(!confirm('Son el silinsin mi?'))return;
-  state.hands.pop(); persist(); syncArchive(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain(); }
+  state.hands.pop(); persist(); newDraft(); paintPill(); paintScore(); paintProg(); paintHist(); paintMain(); }
 function startGame(){ const names=[];
   for(let i=0;i<4;i++){ const v=$('nm'+i).value.trim(); names.push(v||('Oyuncu '+(i+1))); }
-  state.players=names; state.started=true; state.hands=[]; state.id='g'+Date.now(); view='game'; persist(); newDraft(); render(); }
+  state.players=names; state.started=true; state.hands=[]; state.cloudSaved=false; view='game'; persist(); newDraft(); render(); }
 function resetGame(){ if(!confirm('Tüm skorlar silinsin mi?'))return;
   state={players:state.players, started:false, hands:[]}; draft=null; persist(); render(); }
 
-if(state.started && !state.id){ state.id='g'+Date.now(); persist(); }
-syncArchive();
 render();
+cloudFetch();
 </script>
 </body>
 </html>
